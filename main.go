@@ -2,10 +2,14 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"github.com/Jonathanpatta/rplace/auth"
+	"github.com/Jonathanpatta/rplace/cache"
 	"github.com/Jonathanpatta/rplace/middleware"
 	"github.com/Jonathanpatta/rplace/placeclone"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
 	"log"
 	"net/http"
@@ -16,12 +20,22 @@ func main() {
 	if err != nil {
 		log.Fatalf("unable to load SDK config, %v", err)
 	}
+	client, err := cache.NewClient("/cachedb")
+	if err != nil {
+		fmt.Println("cache client could not be created")
+	}
+
 	DbCli := dynamodb.NewFromConfig(cfg)
 	sessionStore := sessions.NewCookieStore([]byte("aksjdfjjlasdfjlkjlasdf"))
 
-	placecloneRouter := placeclone.NewRouter(DbCli, sessionStore)
-	placecloneRouter.Use(middleware.CorsMiddleware)
-	http.Handle("/", placecloneRouter)
+	mainRouter := mux.NewRouter()
+
+	mainRouter.Use(middleware.CorsMiddleware)
+
+	placeclone.AddSubrouter(DbCli, sessionStore, client, mainRouter)
+	auth.AddSubrouter(DbCli, sessionStore, mainRouter)
+
+	http.Handle("/", mainRouter)
 
 	http.ListenAndServe(":8000", nil)
 

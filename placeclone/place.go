@@ -13,7 +13,6 @@ import (
 	"github.com/gorilla/sessions"
 	"net/http"
 	"strconv"
-	"time"
 )
 
 type Server struct {
@@ -21,48 +20,17 @@ type Server struct {
 	TableName    *string
 	SessionStore *sessions.CookieStore
 	Image        *Image
+	cacheCli     *cache.Client
 }
 
-func NewServer(DbCli *dynamodb.Client, store *sessions.CookieStore) Server {
-	client, err := cache.NewClient("/cachedb")
-	if err != nil {
-		fmt.Println("cache client could not be created")
-	}
-	err = client.Put("string1", Pixel{
-		Pk:           "laskjdf",
-		Sk:           "asdf",
-		Row:          12,
-		Col:          23,
-		Color:        "asfd",
-		Author:       "asdf",
-		LastModified: time.Now().Unix(),
-	})
-	if err != nil {
-		fmt.Println("Could not put into cache")
-	}
-	var pixel Pixel
-	err = client.Get("string1", &pixel)
-	if err != nil {
-		fmt.Println("Could not get from cache")
-	}
-
-	fmt.Println(pixel)
-
-	err = client.Delete("string1")
-	if err != nil {
-		fmt.Println("Could not delete from cache")
-	}
-
-	err = client.Get("string1", &pixel)
-	if err != nil {
-		fmt.Println("Could not get from cache")
-	}
+func NewServer(DbCli *dynamodb.Client, store *sessions.CookieStore, client *cache.Client) Server {
 
 	return Server{
 		DbCli:        DbCli,
 		TableName:    aws.String("Place-Clone"),
 		Image:        NewImage("main image", 25, 25),
 		SessionStore: store,
+		cacheCli:     client,
 	}
 }
 
@@ -71,32 +39,7 @@ func (s *Server) Ping(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) Home(w http.ResponseWriter, r *http.Request) {
-
-	//start := time.Now()
-	//output, err := s.DbCli.Scan(context.TODO(), &dynamodb.ScanInput{
-	//	TableName: s.TableName,
-	//})
-	//end := time.Now()
-	//
-	//if err != nil {
-	//	fmt.Println("ERROR OVER HERE")
-	//	http.Error(w, err.Error(), http.StatusInternalServerError)
-	//	return
-	//}
-	//fmt.Println("PRINT OVER HERE")
-	//var items []Item
-	//err = attributevalue.UnmarshalListOfMaps(output.Items, &items)
-	//
-	//if err != nil {
-	//	http.Error(w, err.Error(), http.StatusInternalServerError)
-	//	return
-	//}
-	//
-	//for _, item := range items {
-	//	fmt.Fprintln(w, item)
-	//	fmt.Fprintln(w, "******************")
-	//}
-	//fmt.Fprintln(w, "completed in:", end.Sub(start).Nanoseconds()/(1000000))
+	fmt.Fprintln(w, "HOME")
 }
 
 func (s *Server) UpdatePixel(w http.ResponseWriter, r *http.Request) {
@@ -145,7 +88,6 @@ func (s *Server) GetPixels(w http.ResponseWriter, r *http.Request) {
 		FilterExpression:       aws.String("(#row between :zero and :rows) and (#col between :zero and :cols)"),
 		ExpressionAttributeValues: map[string]types.AttributeValue{
 			":name": &types.AttributeValueMemberS{Value: s.Image.Name},
-			//":sortKey": &types.AttributeValueMemberS{Value: ""},
 			":rows": &types.AttributeValueMemberN{Value: strconv.Itoa(s.Image.Rows)},
 			":cols": &types.AttributeValueMemberN{Value: strconv.Itoa(s.Image.Cols)},
 			":zero": &types.AttributeValueMemberN{Value: strconv.Itoa(0)},
@@ -180,15 +122,28 @@ func (s *Server) GetPixels(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func NewRouter(DbCli *dynamodb.Client, store *sessions.CookieStore) *mux.Router {
-	server := NewServer(DbCli, store)
+func NewRouter(DbCli *dynamodb.Client, store *sessions.CookieStore, cacheCli *cache.Client) *mux.Router {
+	server := NewServer(DbCli, store, cacheCli)
 
 	r := mux.NewRouter()
 
-	r.HandleFunc("/ping", server.Ping)
-	r.HandleFunc("/", server.Home)
+	r.HandleFunc("/ping", server.Ping).Methods("GET")
+	r.HandleFunc("/", server.Home).Methods("GET")
 	r.HandleFunc("/pixels", server.GetPixels).Methods("GET")
 	r.HandleFunc("/updatePixel", server.UpdatePixel).Methods("POST")
 
 	return r
+}
+
+func AddSubrouter(DbCli *dynamodb.Client, store *sessions.CookieStore, cacheCli *cache.Client, r *mux.Router) {
+
+	server := NewServer(DbCli, store, cacheCli)
+
+	router := r.PathPrefix("/api").Subrouter()
+
+	router.HandleFunc("/ping", server.Ping).Methods("GET")
+	router.HandleFunc("/", server.Home).Methods("GET")
+	router.HandleFunc("/pixels", server.GetPixels).Methods("GET")
+	router.HandleFunc("/updatePixel", server.UpdatePixel).Methods("POST")
+
 }

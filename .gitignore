@@ -16,4 +16,6 @@
 # Go workspace file
 go.work
 
+*.iml
+*.xml
 rootkey.csv
