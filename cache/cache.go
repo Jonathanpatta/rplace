@@ -54,6 +54,21 @@ func (c *Client) Delete(key string) error {
 	return err
 }
 
+func (c *Client) ClearAll() error {
+	iter := c.DbCli.NewIterator(nil, nil)
+	for iter.Next() {
+		key := iter.Key()
+		fmt.Println(string(key))
+		err := c.DbCli.Delete(key, nil)
+		if err != nil {
+			return err
+		}
+	}
+	iter.Release()
+	err := iter.Error()
+	return err
+}
+
 func NewClient(path string) (*Client, error) {
 	db, err := leveldb.OpenFile(path, nil)
 	if err != nil {

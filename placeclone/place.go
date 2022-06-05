@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/Jonathanpatta/rplace/cache"
+	"github.com/Jonathanpatta/rplace/middleware"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
@@ -135,11 +136,13 @@ func NewRouter(DbCli *dynamodb.Client, store *sessions.CookieStore, cacheCli *ca
 	return r
 }
 
-func AddSubrouter(DbCli *dynamodb.Client, store *sessions.CookieStore, cacheCli *cache.Client, r *mux.Router) {
+func AddSubrouter(DbCli *dynamodb.Client, store *sessions.CookieStore, cacheCli *cache.Client, authMiddleware *middleware.AuthMiddlewareServer, r *mux.Router) {
 
 	server := NewServer(DbCli, store, cacheCli)
 
 	router := r.PathPrefix("/api").Subrouter()
+
+	router.Use(authMiddleware.Authorization)
 
 	router.HandleFunc("/ping", server.Ping).Methods("GET")
 	router.HandleFunc("/", server.Home).Methods("GET")
