@@ -34,8 +34,7 @@ func (c *Client) Get(key string, value interface{}) error {
 	}
 	buf := new(bytes.Buffer)
 
-	reslen, err := buf.Write(res)
-	fmt.Println(reslen)
+	_, err = buf.Write(res)
 	if err != nil {
 		fmt.Println(err)
 		return err

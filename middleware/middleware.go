@@ -2,13 +2,13 @@ package middleware
 
 import (
 	"context"
-	"fmt"
 	"github.com/Jonathanpatta/rplace/auth"
 	"github.com/Jonathanpatta/rplace/cache"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"github.com/google/uuid"
 	"github.com/gorilla/sessions"
 	"net/http"
 	"strings"
@@ -49,14 +49,18 @@ func (s *AuthMiddlewareServer) Authorization(next http.Handler) http.Handler {
 
 		tokenString := strings.TrimLeft(authHeader, "Bearer ")
 
-		var token auth.Token
-
-		err := s.CacheCli.Get("TOKEN#"+tokenString, &token)
-
-		fmt.Println(token)
+		_, err := uuid.Parse(tokenString)
 
 		if err != nil {
-			fmt.Println("cache miss")
+			http.Error(w, "invalid token: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		var token auth.Token
+
+		err = s.CacheCli.Get("TOKEN#"+tokenString, &token)
+
+		if err != nil {
 
 			out, err := s.DbCli.Query(context.TODO(), &dynamodb.QueryInput{
 				TableName:              aws.String("Place-Clone"),
@@ -88,32 +92,25 @@ func (s *AuthMiddlewareServer) Authorization(next http.Handler) http.Handler {
 			}
 
 			if len(tokens) == 1 {
-				fmt.Println("we made it")
-				if !tokens[0].IsValid() {
+				token = tokens[0]
+				if !token.IsValid() {
 					if err != nil {
 						http.Error(w, "token expired", http.StatusInternalServerError)
 						return
 					}
 				}
-				fmt.Println("cache add")
-				err := s.CacheCli.Put("TOKEN#"+tokens[0].Token, tokens[0])
+				err := s.CacheCli.Put("TOKEN#"+token.Token, token)
 				if err != nil {
-					http.Error(w, "token expired", http.StatusInternalServerError)
+					http.Error(w, "failed to put in cache", http.StatusInternalServerError)
 					return
 				}
-
-				var ctoken auth.Token
-
-				err = s.CacheCli.Get("TOKEN#"+token.Token, &ctoken)
-				if err != nil {
-					http.Error(w, "Couldn't get from cache", http.StatusInternalServerError)
-					return
-				}
-
-				fmt.Println(ctoken)
 			}
 		}
 
+		if !token.IsValid() {
+			http.Error(w, "invalid token", http.StatusInternalServerError)
+			return
+		}
 		next.ServeHTTP(w, r)
 	})
 }

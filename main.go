@@ -24,23 +24,6 @@ func main() {
 	if err != nil {
 		fmt.Println("cache client could not be created")
 	}
-	//
-	//err = client.Put("TOKEN#", auth.Token{
-	//	PK:        "asdfsad",
-	//	Token:     "asdfasdf",
-	//	ValidTill: 2,
-	//	LastUsed:  0,
-	//})
-	//
-	//if err != nil {
-	//	fmt.Println(err.Error())
-	//}
-	//
-	//var token auth.Token
-	//
-	//err = client.Get("TOKEN#", &token)
-	//
-	//fmt.Println(token)
 
 	client.ClearAll()
 

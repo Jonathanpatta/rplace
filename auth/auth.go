@@ -30,10 +30,16 @@ func (t *Token) CreatePk() {
 }
 
 func (t *Token) IsValid() bool {
-	if time.Now().Unix() > t.ValidTill {
+	now := time.Now().Unix()
+	if now > t.ValidTill {
 		return false
 	}
 	if t.Token == "" {
+		return false
+	}
+
+	_, err := uuid.Parse(t.Token)
+	if err != nil {
 		return false
 	}
 
