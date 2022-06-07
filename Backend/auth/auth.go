@@ -226,6 +226,11 @@ func (s *Server) Ping(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintln(w, "Hello")
 }
 
+type Options struct {
+	DbCli *dynamodb.Client
+	Store *sessions.CookieStore
+}
+
 func NewRouter(DbCli *dynamodb.Client, store *sessions.CookieStore) *mux.Router {
 	server := NewServer(DbCli, store)
 	r := mux.NewRouter()
@@ -237,8 +242,8 @@ func NewRouter(DbCli *dynamodb.Client, store *sessions.CookieStore) *mux.Router 
 	return r
 }
 
-func AddSubrouter(DbCli *dynamodb.Client, store *sessions.CookieStore, r *mux.Router) {
-	server := NewServer(DbCli, store)
+func AddSubrouter(o *Options, r *mux.Router) {
+	server := NewServer(o.DbCli, o.Store)
 	router := r.PathPrefix("/auth").Subrouter()
 
 	router.HandleFunc("/generateToken", server.GenerateToken).Methods("POST")

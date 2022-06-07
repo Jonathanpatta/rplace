@@ -39,8 +39,20 @@ func main() {
 
 	mainRouter.Use(middleware.CorsMiddleware)
 
-	placeclone.AddSubrouter(DbCli, sessionStore, client, middlewareServer, mainRouter)
-	auth.AddSubrouter(DbCli, sessionStore, mainRouter)
+	placecloneServerOptions := &placeclone.Options{
+		DbCli:          DbCli,
+		Store:          sessionStore,
+		CacheCli:       client,
+		AuthMiddleware: middlewareServer,
+	}
+
+	authServerOptions := &auth.Options{
+		DbCli: DbCli,
+		Store: sessionStore,
+	}
+
+	placeclone.AddSubrouter(placecloneServerOptions, mainRouter)
+	auth.AddSubrouter(authServerOptions, mainRouter)
 
 	http.Handle("/", mainRouter)
 

@@ -29,7 +29,7 @@ func GetSortKey(row int, col int) string {
 
 func (i *Image) UpdatePixel(row int, col int, color string, author string) (*Pixel, error) {
 	pixel := &Pixel{
-		Pk:           i.Name,
+		Pk:           "PIXEL#" + i.Name,
 		Sk:           GetSortKey(row, col),
 		Row:          row,
 		Col:          col,

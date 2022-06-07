@@ -88,7 +88,7 @@ func (s *Server) GetPixels(w http.ResponseWriter, r *http.Request) {
 		KeyConditionExpression: aws.String("#PK = :name"),
 		FilterExpression:       aws.String("(#row between :zero and :rows) and (#col between :zero and :cols)"),
 		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":name": &types.AttributeValueMemberS{Value: s.Image.Name},
+			":name": &types.AttributeValueMemberS{Value: "PIXEL#" + s.Image.Name},
 			":rows": &types.AttributeValueMemberN{Value: strconv.Itoa(s.Image.Rows)},
 			":cols": &types.AttributeValueMemberN{Value: strconv.Itoa(s.Image.Cols)},
 			":zero": &types.AttributeValueMemberN{Value: strconv.Itoa(0)},
@@ -123,8 +123,15 @@ func (s *Server) GetPixels(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func NewRouter(DbCli *dynamodb.Client, store *sessions.CookieStore, cacheCli *cache.Client) *mux.Router {
-	server := NewServer(DbCli, store, cacheCli)
+type Options struct {
+	DbCli          *dynamodb.Client
+	Store          *sessions.CookieStore
+	CacheCli       *cache.Client
+	AuthMiddleware *middleware.AuthMiddlewareServer
+}
+
+func NewRouter(o *Options) *mux.Router {
+	server := NewServer(o.DbCli, o.Store, o.CacheCli)
 
 	r := mux.NewRouter()
 
@@ -136,13 +143,13 @@ func NewRouter(DbCli *dynamodb.Client, store *sessions.CookieStore, cacheCli *ca
 	return r
 }
 
-func AddSubrouter(DbCli *dynamodb.Client, store *sessions.CookieStore, cacheCli *cache.Client, authMiddleware *middleware.AuthMiddlewareServer, r *mux.Router) {
+func AddSubrouter(o *Options, r *mux.Router) {
 
-	server := NewServer(DbCli, store, cacheCli)
+	server := NewServer(o.DbCli, o.Store, o.CacheCli)
 
 	router := r.PathPrefix("/api").Subrouter()
 
-	router.Use(authMiddleware.Authorization)
+	router.Use(o.AuthMiddleware.Authorization)
 
 	router.HandleFunc("/ping", server.Ping).Methods("GET")
 	router.HandleFunc("/", server.Home).Methods("GET")
