@@ -33,7 +33,8 @@ func main() {
 
 	DbCli := dynamodb.NewFromConfig(cfg)
 	sessionStore := sessions.NewCookieStore([]byte("aksjdfjjlasdfjlkjlasdf"))
-	middlewareServer := middleware.NewAuthMiddlewareServer(sessionStore, client, DbCli)
+	userpoolId := "ap-south-1_DTkRR7wmN"
+	middlewareServer := middleware.NewAuthMiddlewareServer(sessionStore, client, DbCli, userpoolId)
 
 	mainRouter := mux.NewRouter()
 

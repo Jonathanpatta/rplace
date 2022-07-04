@@ -29,7 +29,7 @@ func NewServer(DbCli *dynamodb.Client, store *sessions.CookieStore, client *cach
 	return Server{
 		DbCli:        DbCli,
 		TableName:    aws.String("Place-Clone"),
-		Image:        NewImage("main image", 25, 25),
+		Image:        NewImage("main image", 100, 100),
 		SessionStore: store,
 		cacheCli:     client,
 	}
@@ -56,7 +56,7 @@ func (s *Server) UpdatePixel(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	out, err := s.DbCli.PutItem(context.TODO(), &dynamodb.PutItemInput{
+	_, err = s.DbCli.PutItem(context.TODO(), &dynamodb.PutItemInput{
 		Item: map[string]types.AttributeValue{
 			"PK":            &types.AttributeValueMemberS{Value: updatedPixel.Pk},
 			"SK":            &types.AttributeValueMemberS{Value: updatedPixel.Sk},
@@ -73,7 +73,13 @@ func (s *Server) UpdatePixel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Fprint(w, out.Attributes)
+	outputPixel, err := json.Marshal(updatedPixel)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	fmt.Fprint(w, string(outputPixel))
 }
 
 func (s *Server) GetPixels(w http.ResponseWriter, r *http.Request) {
@@ -149,11 +155,11 @@ func AddSubrouter(o *Options, r *mux.Router) {
 
 	router := r.PathPrefix("/api").Subrouter()
 
-	router.Use(o.AuthMiddleware.Authorization)
+	router.Use(o.AuthMiddleware.JwtAuthorization)
 
-	router.HandleFunc("/ping", server.Ping).Methods("GET")
-	router.HandleFunc("/", server.Home).Methods("GET")
-	router.HandleFunc("/pixels", server.GetPixels).Methods("GET")
-	router.HandleFunc("/updatePixel", server.UpdatePixel).Methods("POST")
+	router.HandleFunc("/ping", server.Ping).Methods("GET", "OPTIONS")
+	router.HandleFunc("/", server.Home).Methods("GET", "OPTIONS")
+	router.HandleFunc("/pixels", server.GetPixels).Methods("GET", "OPTIONS")
+	router.HandleFunc("/updatePixel", server.UpdatePixel).Methods("POST", "OPTIONS")
 
 }
